@@ -1,14 +1,15 @@
 (function() {
     const payload = window.__whatsWrapPayload;
     if (!payload) return;
+    console.log("payload", payload)
 
     // 1. Static Core Engine (For Wallpaper CSS structural rules)
-    let coreTag = document.getElementById('wrap-core-engine');
-    if (!coreTag) {
-        coreTag = document.createElement('style');
-        coreTag.id = 'wrap-core-engine';
-        coreTag.textContent = payload.staticCssRules;
-        document.head.appendChild(coreTag);
+    let WallTag = document.getElementById('wrap-wallpaper-engine');
+    if (!WallTag) {
+        WallTag = document.createElement('style');
+        WallTag.id = 'wrap-wallpaper-engine';
+        WallTag.textContent = payload.staticCssRules;
+        document.head.appendChild(WallTag);
     }
 
     // 2. Dynamic Theme Engine (For Color Variables)
@@ -71,6 +72,7 @@
             "important"
         );
     } else {
+        WallTag.remove()
         document.body.style.removeProperty('--whats-wrap-wallpaper');
     }
 

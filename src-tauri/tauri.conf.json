@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "whats-wrap",
+  "productName": "Wrap It App",
   "version": "0.1.0",
-  "identifier": "com.whats-wrap",
+  "identifier": "com.wrap-it-app",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",

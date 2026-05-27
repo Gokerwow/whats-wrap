@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    whats_wrap_lib::run()
+    wrap_it_app_lib::run()
 }

@@ -193,7 +193,7 @@ fn setup_desktop_layout(app: &mut App) -> Result<(), Box<dyn std::error::Error>>
     
     // 1. Create the raw native window frame wrapper canvas
     let main_window = WindowBuilder::new(app, "main")
-        .title("WhatsWrap")
+        .title("Wrap It App")
         .inner_size(1200.0, 800.0)
         .resizable(true)
         .build()?;
@@ -563,7 +563,7 @@ fn reset_everything(app_handle: tauri::AppHandle) {
                             if(window.__whatsWrapUpdateTheme) window.__whatsWrapUpdateTheme();
                         }
                         
-                        const tag = document.getElementById('wrap-core-engine');
+                        const tag = document.getElementById('wrap-wallpaper-engine');
                         if (tag) tag.remove();
                     })();
                 ";

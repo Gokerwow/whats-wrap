@@ -5,15 +5,18 @@
   import type { FormEventHandler } from "svelte/elements";
 
   let saveTimer: ReturnType<typeof setTimeout>;
-
-  let sidebarWidth = $state(260); // Slightly wider default for the new design
+  let sidebarWidth = $state(260);
   let wallpaperStatus = $state("");
   let isDragging = $state(false);
-  let isChanging = $state(true); // Default open to show the new menu
+
+  let activeSection = $state<string>("");
+
   let urlValue = $state("");
   let localFile = $state("");
   let compressImage = $state(true);
-  let accentColor = $state(""); // Default WhatsApp Green
+
+  // Color States
+  let accentColor = $state("");
   let contentDeemphasized = $state("");
   let bubbleSurfaceIncoming = $state("");
   let bubbleSurfaceOutgoing = $state("");
@@ -29,7 +32,12 @@
   let componentsActiveListRow = $state("");
   let backgroundDefault = $state("");
   let chatBackgroundWallpaper = $state("");
+
   let searchContainerFix = $state<"as-is" | "fixed">("as-is");
+
+  function toggleSection(section: string) {
+    activeSection = activeSection === section ? "" : section;
+  }
 
   async function changeWallpaper(event: Event) {
     event.preventDefault();
@@ -39,13 +47,13 @@
         await invoke("set_chat_wallpaper_local", {
           filePath: localFile,
           compressImage: compressImage,
-          saveToConfig: true
+          saveToConfig: true,
         });
       } else if (urlValue) {
         await invoke("set_chat_wallpaper", {
           wallpaperUrl: urlValue,
           compressImage: compressImage,
-          saveToConfig: true
+          saveToConfig: true,
         });
       }
       wallpaperStatus = "Wallpaper changed!";
@@ -91,360 +99,240 @@
     window.removeEventListener("mouseup", stopResize);
   }
 
-  function handleChangeWallpaperClick() {
-    isChanging = !isChanging;
-  }
-
   async function selectLocalFile() {
     const selectedPath = await open({
-      filters: [
-        {
-          name: "Image",
-          extensions: ["png", "jpeg", "jpg"],
-        },
-      ],
+      filters: [{ name: "Image", extensions: ["png", "jpeg", "jpg"] }],
     });
-
     if (selectedPath) {
       localFile = selectedPath;
-      console.log("localFile: ", localFile);
     }
   }
 
-  const applyAccentColor: FormEventHandler<HTMLInputElement> = async (event) => {
-    const currentColor = event.currentTarget.value;
-    accentColor = currentColor;
-
-    try {
-      await invoke("set_accent_color", { color: currentColor, saveToConfig: false });
-    } catch (e) {
-      console.error("Tauri Live Preview Error:", e);
-    }
-
-    clearTimeout(saveTimer);
-    
-    saveTimer = setTimeout(async () => {
+  // Color Handlers
+  function createColorHandler(
+    setter: (val: string) => void,
+    invokeCmd: string,
+  ): FormEventHandler<HTMLInputElement> {
+    return async (event) => {
+      const currentColor = event.currentTarget.value;
+      setter(currentColor);
       try {
-        console.log("💾 User stopped moving the mouse! Writing to config.json...");
-        await invoke("set_accent_color", { color: currentColor, saveToConfig: true });
+        await invoke(invokeCmd, { color: currentColor, saveToConfig: false });
       } catch (e) {
-        console.error("Tauri Disk Save Error:", e);
+        console.error(e);
       }
-    }, 500);
-  };
 
-  const applyContentDeemphasized: FormEventHandler<HTMLInputElement> = async (event) => {
-    const currentColor = event.currentTarget.value;
-    contentDeemphasized = currentColor;
-    try {
-      await invoke("set_content_deemphasized", { color: currentColor, saveToConfig: false });
-    } catch (e) { console.error(e); }
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      try { await invoke("set_content_deemphasized", { color: currentColor, saveToConfig: true }); }
-      catch (e) { console.error(e); }
-    }, 500);
-  };
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(async () => {
+        try {
+          await invoke(invokeCmd, { color: currentColor, saveToConfig: true });
+        } catch (e) {
+          console.error(e);
+        }
+      }, 500);
+    };
+  }
 
-  const applyBubbleSurfaceIncoming: FormEventHandler<HTMLInputElement> = async (event) => {
-    const currentColor = event.currentTarget.value;
-    bubbleSurfaceIncoming = currentColor;
-    try {
-      await invoke("set_bubble_surface_incoming", { color: currentColor, saveToConfig: false });
-    } catch (e) { console.error(e); }
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      try { await invoke("set_bubble_surface_incoming", { color: currentColor, saveToConfig: true }); }
-      catch (e) { console.error(e); }
-    }, 500);
-  };
+  const applyAccentColor = createColorHandler(
+    (v) => (accentColor = v),
+    "set_accent_color",
+  );
+  const applyContentDeemphasized = createColorHandler(
+    (v) => (contentDeemphasized = v),
+    "set_content_deemphasized",
+  );
+  const applyBubbleSurfaceIncoming = createColorHandler(
+    (v) => (bubbleSurfaceIncoming = v),
+    "set_bubble_surface_incoming",
+  );
+  const applyBubbleSurfaceOutgoing = createColorHandler(
+    (v) => (bubbleSurfaceOutgoing = v),
+    "set_bubble_surface_outgoing",
+  );
+  const applyChatSurfaceComposer = createColorHandler(
+    (v) => (chatSurfaceComposer = v),
+    "set_chat_surface_composer",
+  );
+  const applySurfaceHighlight = createColorHandler(
+    (v) => (surfaceHighlight = v),
+    "set_surface_highlight",
+  );
+  const applySurfaceDefault = createColorHandler(
+    (v) => (surfaceDefault = v),
+    "set_surface_default",
+  );
+  const applyPersistentAlwaysBranded = createColorHandler(
+    (v) => (persistentAlwaysBranded = v),
+    "set_persistent_always_branded",
+  );
+  const applyContentDefault = createColorHandler(
+    (v) => (contentDefault = v),
+    "set_content_default",
+  );
+  const applySurfaceEmphasized = createColorHandler(
+    (v) => (surfaceEmphasized = v),
+    "set_surface_emphasized",
+  );
+  const applyMessagePrimary = createColorHandler(
+    (v) => (messagePrimary = v),
+    "set_message_primary",
+  );
+  const applyContentRead = createColorHandler(
+    (v) => (contentRead = v),
+    "set_content_read",
+  );
+  const applyContentOnAccent = createColorHandler(
+    (v) => (contentOnAccent = v),
+    "set_content_on_accent",
+  );
+  const applyComponentsActiveListRow = createColorHandler(
+    (v) => (componentsActiveListRow = v),
+    "set_components_active_list_row",
+  );
+  const applyBackgroundDefault = createColorHandler(
+    (v) => (backgroundDefault = v),
+    "set_background_default",
+  );
+  const applyChatBackgroundWallpaper = createColorHandler(
+    (v) => (chatBackgroundWallpaper = v),
+    "set_chat_background_wallpaper",
+  );
 
-  const applyBubbleSurfaceOutgoing: FormEventHandler<HTMLInputElement> = async (event) => {
-    const currentColor = event.currentTarget.value;
-    bubbleSurfaceOutgoing = currentColor;
-    try {
-      await invoke("set_bubble_surface_outgoing", { color: currentColor, saveToConfig: false });
-    } catch (e) { console.error(e); }
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      try { await invoke("set_bubble_surface_outgoing", { color: currentColor, saveToConfig: true }); }
-      catch (e) { console.error(e); }
-    }, 500);
-  };
+  // Defaults & Resets
 
-  const applyChatSurfaceComposer: FormEventHandler<HTMLInputElement> = async (event) => {
-    const currentColor = event.currentTarget.value;
-    chatSurfaceComposer = currentColor;
-    try {
-      await invoke("set_chat_surface_composer", { color: currentColor, saveToConfig: false });
-    } catch (e) { console.error(e); }
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      try { await invoke("set_chat_surface_composer", { color: currentColor, saveToConfig: true }); }
-      catch (e) { console.error(e); }
-    }, 500);
-  };
-
-  const applySurfaceHighlight: FormEventHandler<HTMLInputElement> = async (event) => {
-    const currentColor = event.currentTarget.value;
-    surfaceHighlight = currentColor;
-    try {
-      await invoke("set_surface_highlight", { color: currentColor, saveToConfig: false });
-    } catch (e) { console.error(e); }
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      try { await invoke("set_surface_highlight", { color: currentColor, saveToConfig: true }); }
-      catch (e) { console.error(e); }
-    }, 500);
-  };
-
-  const applySurfaceDefault: FormEventHandler<HTMLInputElement> = async (event) => {
-    const currentColor = event.currentTarget.value;
-    surfaceDefault = currentColor;
-    try {
-      await invoke("set_surface_default", { color: currentColor, saveToConfig: false });
-    } catch (e) { console.error(e); }
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      try { await invoke("set_surface_default", { color: currentColor, saveToConfig: true }); }
-      catch (e) { console.error(e); }
-    }, 500);
-  };
-
-  const applyPersistentAlwaysBranded: FormEventHandler<HTMLInputElement> = async (event) => {
-    const currentColor = event.currentTarget.value;
-    persistentAlwaysBranded = currentColor;
-    try {
-      await invoke("set_persistent_always_branded", { color: currentColor, saveToConfig: false });
-    } catch (e) { console.error(e); }
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      try { await invoke("set_persistent_always_branded", { color: currentColor, saveToConfig: true }); }
-      catch (e) { console.error(e); }
-    }, 500);
-  };
-
-  const applyContentDefault: FormEventHandler<HTMLInputElement> = async (event) => {
-    const currentColor = event.currentTarget.value;
-    contentDefault = currentColor;
-    try {
-      await invoke("set_content_default", { color: currentColor, saveToConfig: false });
-    } catch (e) { console.error(e); }
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      try { await invoke("set_content_default", { color: currentColor, saveToConfig: true }); }
-      catch (e) { console.error(e); }
-    }, 500);
-  };
-
-  const applySurfaceEmphasized: FormEventHandler<HTMLInputElement> = async (event) => {
-    const currentColor = event.currentTarget.value;
-    surfaceEmphasized = currentColor;
-    try {
-      await invoke("set_surface_emphasized", { color: currentColor, saveToConfig: false });
-    } catch (e) { console.error(e); }
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      try { await invoke("set_surface_emphasized", { color: currentColor, saveToConfig: true }); }
-      catch (e) { console.error(e); }
-    }, 500);
-  };
-
-  const applyMessagePrimary: FormEventHandler<HTMLInputElement> = async (event) => {
-    const currentColor = event.currentTarget.value;
-    messagePrimary = currentColor;
-    try {
-      await invoke("set_message_primary", { color: currentColor, saveToConfig: false });
-    } catch (e) { console.error(e); }
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      try { await invoke("set_message_primary", { color: currentColor, saveToConfig: true }); }
-      catch (e) { console.error(e); }
-    }, 500);
-  };
-
-  const applyContentRead: FormEventHandler<HTMLInputElement> = async (event) => {
-    const currentColor = event.currentTarget.value;
-    contentRead = currentColor;
-    try {
-      await invoke("set_content_read", { color: currentColor, saveToConfig: false });
-    } catch (e) { console.error(e); }
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      try { await invoke("set_content_read", { color: currentColor, saveToConfig: true }); }
-      catch (e) { console.error(e); }
-    }, 500);
-  };
-
-  const applyContentOnAccent: FormEventHandler<HTMLInputElement> = async (event) => {
-    const currentColor = event.currentTarget.value;
-    contentOnAccent = currentColor;
-    try {
-      await invoke("set_content_on_accent", { color: currentColor, saveToConfig: false });
-    } catch (e) { console.error(e); }
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      try { await invoke("set_content_on_accent", { color: currentColor, saveToConfig: true }); }
-      catch (e) { console.error(e); }
-    }, 500);
-  };
-
-  const applyComponentsActiveListRow: FormEventHandler<HTMLInputElement> = async (event) => {
-    const currentColor = event.currentTarget.value;
-    componentsActiveListRow = currentColor;
-    try {
-      await invoke("set_components_active_list_row", { color: currentColor, saveToConfig: false });
-    } catch (e) { console.error(e); }
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      try { await invoke("set_components_active_list_row", { color: currentColor, saveToConfig: true }); }
-      catch (e) { console.error(e); }
-    }, 500);
-  };
-
-  const applyBackgroundDefault: FormEventHandler<HTMLInputElement> = async (event) => {
-    const currentColor = event.currentTarget.value;
-    backgroundDefault = currentColor;
-    try {
-      await invoke("set_background_default", { color: currentColor, saveToConfig: false });
-    } catch (e) { console.error(e); }
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      try { await invoke("set_background_default", { color: currentColor, saveToConfig: true }); }
-      catch (e) { console.error(e); }
-    }, 500);
-  };
-
-  const applyChatBackgroundWallpaper: FormEventHandler<HTMLInputElement> = async (event) => {
-    const currentColor = event.currentTarget.value;
-    chatBackgroundWallpaper = currentColor;
-    try {
-      await invoke("set_chat_background_wallpaper", { color: currentColor, saveToConfig: false });
-    } catch (e) { console.error(e); }
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      try { await invoke("set_chat_background_wallpaper", { color: currentColor, saveToConfig: true }); }
-      catch (e) { console.error(e); }
-    }, 500);
-  };
-
-  // ── Defaults ─────────────────────────────────────────────────────────────
-  // Empty string = don't override, let WhatsApp's own stylesheet show through.
   const DEFAULTS = {
-    accentColor:              "",
-    contentDeemphasized:      "",
-    bubbleSurfaceIncoming:    "",
-    bubbleSurfaceOutgoing:    "",
-    chatSurfaceComposer:      "",
-    surfaceHighlight:         "",
-    surfaceDefault:           "",
-    persistentAlwaysBranded:  "",
-    contentDefault:           "",
-    surfaceEmphasized:        "",
-    messagePrimary:           "",
-    contentRead:              "",
-    contentOnAccent:          "",
-    componentsActiveListRow:  "",
-    backgroundDefault:        "",
-    chatBackgroundWallpaper:  "",
+    accentColor: "",
+    contentDeemphasized: "",
+    bubbleSurfaceIncoming: "",
+    bubbleSurfaceOutgoing: "",
+    chatSurfaceComposer: "",
+    surfaceHighlight: "",
+    surfaceDefault: "",
+    persistentAlwaysBranded: "",
+    contentDefault: "",
+    surfaceEmphasized: "",
+    messagePrimary: "",
+    contentRead: "",
+    contentOnAccent: "",
+    componentsActiveListRow: "",
+    backgroundDefault: "",
+    chatBackgroundWallpaper: "",
   } as const;
 
   async function resetAllColors() {
-    accentColor             = DEFAULTS.accentColor;
-    contentDeemphasized     = DEFAULTS.contentDeemphasized;
-    bubbleSurfaceIncoming   = DEFAULTS.bubbleSurfaceIncoming;
-    bubbleSurfaceOutgoing   = DEFAULTS.bubbleSurfaceOutgoing;
-    chatSurfaceComposer     = DEFAULTS.chatSurfaceComposer;
-    surfaceHighlight        = DEFAULTS.surfaceHighlight;
-    surfaceDefault          = DEFAULTS.surfaceDefault;
+    accentColor = DEFAULTS.accentColor;
+    contentDeemphasized = DEFAULTS.contentDeemphasized;
+    bubbleSurfaceIncoming = DEFAULTS.bubbleSurfaceIncoming;
+    bubbleSurfaceOutgoing = DEFAULTS.bubbleSurfaceOutgoing;
+    chatSurfaceComposer = DEFAULTS.chatSurfaceComposer;
+    surfaceHighlight = DEFAULTS.surfaceHighlight;
+    surfaceDefault = DEFAULTS.surfaceDefault;
     persistentAlwaysBranded = DEFAULTS.persistentAlwaysBranded;
-    contentDefault          = DEFAULTS.contentDefault;
-    surfaceEmphasized       = DEFAULTS.surfaceEmphasized;
-    messagePrimary          = DEFAULTS.messagePrimary;
-    contentRead             = DEFAULTS.contentRead;
-    contentOnAccent         = DEFAULTS.contentOnAccent;
+    contentDefault = DEFAULTS.contentDefault;
+    surfaceEmphasized = DEFAULTS.surfaceEmphasized;
+    messagePrimary = DEFAULTS.messagePrimary;
+    contentRead = DEFAULTS.contentRead;
+    contentOnAccent = DEFAULTS.contentOnAccent;
     componentsActiveListRow = DEFAULTS.componentsActiveListRow;
-    backgroundDefault       = DEFAULTS.backgroundDefault;
+    backgroundDefault = DEFAULTS.backgroundDefault;
     chatBackgroundWallpaper = DEFAULTS.chatBackgroundWallpaper;
-
     try {
       await invoke("reset_all_colors");
     } catch (e) {
-      console.error("Failed to reset colors:", e);
+      console.error(e);
     }
   }
 
   async function resetEverything() {
-    // Reset state vars
-    accentColor             = DEFAULTS.accentColor;
-    contentDeemphasized     = DEFAULTS.contentDeemphasized;
-    bubbleSurfaceIncoming   = DEFAULTS.bubbleSurfaceIncoming;
-    bubbleSurfaceOutgoing   = DEFAULTS.bubbleSurfaceOutgoing;
-    chatSurfaceComposer     = DEFAULTS.chatSurfaceComposer;
-    surfaceHighlight        = DEFAULTS.surfaceHighlight;
-    surfaceDefault          = DEFAULTS.surfaceDefault;
-    persistentAlwaysBranded = DEFAULTS.persistentAlwaysBranded;
-    contentDefault          = DEFAULTS.contentDefault;
-    surfaceEmphasized       = DEFAULTS.surfaceEmphasized;
-    messagePrimary          = DEFAULTS.messagePrimary;
-    contentRead             = DEFAULTS.contentRead;
-    contentOnAccent         = DEFAULTS.contentOnAccent;
-    componentsActiveListRow = DEFAULTS.componentsActiveListRow;
-    backgroundDefault       = DEFAULTS.backgroundDefault;
-    chatBackgroundWallpaper = DEFAULTS.chatBackgroundWallpaper;
-    urlValue                = "";
-    localFile               = "";
-
+    await resetAllColors();
+    urlValue = "";
+    localFile = "";
     try {
       await invoke("reset_everything");
     } catch (e) {
-      console.error("Failed to reset everything:", e);
+      console.error(e);
     }
   }
+
   onMount(async () => {
     try {
-      const config = await invoke<{
-        main_color:                 string | null;
-        content_deemphasized:       string | null;
-        bubble_surface_incoming:    string | null;
-        bubble_surface_outgoing:    string | null;
-        chat_surface_composer:      string | null;
-        surface_highlight:          string | null;
-        surface_default:            string | null;
-        persistent_always_branded:  string | null;
-        content_default:            string | null;
-        surface_emphasized:         string | null;
-        message_primary:            string | null;
-        content_read:               string | null;
-        content_on_accent:          string | null;
-        components_active_list_row: string | null;
-        background_default:         string | null;
-        chat_background_wallpaper:  string | null;
-        search_container_fix:       string | null;
-      }>("get_config_for_frontend");
-
-      accentColor             = config.main_color                 ?? "";
-      contentDeemphasized     = config.content_deemphasized       ?? "";
-      bubbleSurfaceIncoming   = config.bubble_surface_incoming    ?? "";
-      bubbleSurfaceOutgoing   = config.bubble_surface_outgoing    ?? "";
-      chatSurfaceComposer     = config.chat_surface_composer      ?? "";
-      surfaceHighlight        = config.surface_highlight          ?? "";
-      surfaceDefault          = config.surface_default            ?? "";
-      persistentAlwaysBranded = config.persistent_always_branded  ?? "";
-      contentDefault          = config.content_default            ?? "";
-      surfaceEmphasized       = config.surface_emphasized         ?? "";
-      messagePrimary          = config.message_primary            ?? "";
-      contentRead             = config.content_read               ?? "";
-      contentOnAccent         = config.content_on_accent          ?? "";
+      const config = await invoke<any>("get_config_for_frontend");
+      accentColor = config.main_color ?? "";
+      contentDeemphasized = config.content_deemphasized ?? "";
+      bubbleSurfaceIncoming = config.bubble_surface_incoming ?? "";
+      bubbleSurfaceOutgoing = config.bubble_surface_outgoing ?? "";
+      chatSurfaceComposer = config.chat_surface_composer ?? "";
+      surfaceHighlight = config.surface_highlight ?? "";
+      surfaceDefault = config.surface_default ?? "";
+      persistentAlwaysBranded = config.persistent_always_branded ?? "";
+      contentDefault = config.content_default ?? "";
+      surfaceEmphasized = config.surface_emphasized ?? "";
+      messagePrimary = config.message_primary ?? "";
+      contentRead = config.content_read ?? "";
+      contentOnAccent = config.content_on_accent ?? "";
       componentsActiveListRow = config.components_active_list_row ?? "";
-      backgroundDefault       = config.background_default         ?? "";
-      chatBackgroundWallpaper = config.chat_background_wallpaper  ?? "";
-      searchContainerFix      = (config.search_container_fix      ?? "as-is") as "as-is" | "fixed";
+      backgroundDefault = config.background_default ?? "";
+      chatBackgroundWallpaper = config.chat_background_wallpaper ?? "";
+      searchContainerFix = (config.search_container_fix ?? "as-is") as
+        | "as-is"
+        | "fixed";
     } catch (e) {
       console.error("Failed to load color config:", e);
     }
   });
 </script>
+
+{#snippet colorSetting(
+  label: string,
+  hint: string,
+  colorValue: string,
+  applyFn: FormEventHandler<HTMLInputElement>,
+  resetCmd: string,
+  setter: (val: string) => void,
+)}
+  <div class="setting-group">
+    <span class="setting-label"
+      >{label} <span class="setting-hint">{hint}</span></span
+    >
+    <div class="color-picker-wrapper">
+      <input
+        type="color"
+        class="color-input"
+        value={colorValue}
+        oninput={applyFn}
+      />
+      <span class="color-value">{colorValue || "Default"}</span>
+      <button
+        type="button"
+        class="btn-color-reset"
+        title="Reset to default"
+        onclick={async () => {
+          setter("");
+          try {
+            await invoke(resetCmd);
+          } catch (e) {
+            console.error(e);
+          }
+        }}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="11"
+          height="11"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          ><polyline points="1 4 1 10 7 10"></polyline><path
+            d="M3.51 15a9 9 0 1 0 .49-4.5"
+          ></path></svg
+        >
+      </button>
+    </div>
+  </div>
+{/snippet}
 
 <div class="layout">
   <aside
@@ -453,24 +341,26 @@
   >
     <div class="sidebar-header">
       <div class="app-identity">
-        <div class="app-icon">
-        <!-- Todo: CHANGE THE ICON -->
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            ><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg
-          >
-        </div>
+        <button
+          class="app-icon-btn"
+          type="button"
+          title="Wrap It App"
+          onclick={async () => {
+            sidebarWidth = sidebarWidth > 140 ? 70 : 260;
+            await invoke("resize_sidebar", { newWidth: sidebarWidth });
+          }}
+        >
+          <img
+            src="/favicon.png"
+            width="20"
+            height="20"
+            alt="icon"
+            class="app-icon-img"
+          />
+        </button>
         <span class="app-name">Wrap It App</span>
       </div>
-      <div class="search-bar">
+      <div class="search-bar disabled-search">
         <svg
           class="search-icon"
           xmlns="http://www.w3.org/2000/svg"
@@ -489,7 +379,7 @@
             y2="16.65"
           /></svg
         >
-        <span class="search-placeholder">Quick search…</span>
+        <span class="search-placeholder">Search… (Coming Soon)</span>
         <span class="search-kbd">⌘K</span>
       </div>
     </div>
@@ -499,8 +389,10 @@
         <span class="section-label">WhatsApp Tweaks</span>
 
         <button
-          class="nav-btn dropdown-toggle {isChanging ? 'active' : ''}"
-          onclick={handleChangeWallpaperClick}
+          class="nav-btn accordion-toggle {activeSection === 'presets'
+            ? 'active'
+            : ''}"
+          onclick={() => toggleSection("presets")}
         >
           <div class="btn-content">
             <svg
@@ -514,14 +406,13 @@
               stroke-width="2"
               stroke-linecap="round"
               stroke-linejoin="round"
-              ><circle cx="12" cy="12" r="3"></circle><path
-                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-              ></path></svg
+              ><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"
+              ></path><path d="M3 3v5h5"></path></svg
             >
-            <span class="nav-text">Appearance</span>
+            <span class="nav-text">Presets & Resets</span>
           </div>
           <svg
-            class="chevron-icon {isChanging ? 'open' : ''}"
+            class="chevron-icon {activeSection === 'presets' ? 'open' : ''}"
             xmlns="http://www.w3.org/2000/svg"
             width="14"
             height="14"
@@ -534,231 +425,328 @@
             ><polyline points="6 9 12 15 18 9"></polyline></svg
           >
         </button>
+        {#if activeSection === "presets"}
+          <div class="accordion-content">
+            <button
+              type="button"
+              class="btn-danger-text w-full"
+              onclick={resetEverything}
+            >
+              Reset Everything to Default
+            </button>
+            <button
+              type="button"
+              class="btn-danger-text w-full"
+              onclick={resetAllColors}
+            >
+              Reset All Colors to Default
+            </button>
+          </div>
+        {/if}
 
-        {#if isChanging}
-          <div class="dropdown-menu">
+        <button
+          class="nav-btn accordion-toggle {activeSection === 'globalColors'
+            ? 'active'
+            : ''}"
+          onclick={() => toggleSection("globalColors")}
+        >
+          <div class="btn-content">
+            <svg
+              class="nav-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><circle cx="12" cy="12" r="10"></circle><path
+                d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"
+              ></path><path d="M2 12h20"></path></svg
+            >
+            <span class="nav-text">Global Colors</span>
+          </div>
+          <svg
+            class="chevron-icon {activeSection === 'globalColors'
+              ? 'open'
+              : ''}"
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            ><polyline points="6 9 12 15 18 9"></polyline></svg
+          >
+        </button>
+        {#if activeSection === "globalColors"}
+          <div class="accordion-content">
+            {@render colorSetting(
+              "Accent Color",
+              "--WDS-accent",
+              accentColor,
+              applyAccentColor,
+              "reset_main_color",
+              (v) => (accentColor = v),
+            )}
+            {@render colorSetting(
+              "Chat List Background",
+              "--background-default",
+              backgroundDefault,
+              applyBackgroundDefault,
+              "reset_background_default",
+              (v) => (backgroundDefault = v),
+            )}
+            {@render colorSetting(
+              "Headers & Chat List Bars",
+              "--WDS-surface-default",
+              surfaceDefault,
+              applySurfaceDefault,
+              "reset_surface_default",
+              (v) => (surfaceDefault = v),
+            )}
+            {@render colorSetting(
+              "Right Sidebar Background",
+              "--WDS-surface-emphasized",
+              surfaceEmphasized,
+              applySurfaceEmphasized,
+              "reset_surface_emphasized",
+              (v) => (surfaceEmphasized = v),
+            )}
+            {@render colorSetting(
+              "Active / Highlight State",
+              "--WDS-surface-highlight",
+              surfaceHighlight,
+              applySurfaceHighlight,
+              "reset_surface_highlight",
+              (v) => (surfaceHighlight = v),
+            )}
+            {@render colorSetting(
+              "Right Sidebar Active Row",
+              "--WDS-components-active-list-row",
+              componentsActiveListRow,
+              applyComponentsActiveListRow,
+              "reset_components_active_list_row",
+              (v) => (componentsActiveListRow = v),
+            )}
+          </div>
+        {/if}
 
-            <!-- ── Reset Everything ── -->
-            <div class="action-row" style="margin-top: 0; margin-bottom: 0;">
-              <button
-                type="button"
-                class="btn-danger-text w-full"
-                onclick={resetEverything}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-4.5"></path></svg>
-                Reset Everything to Default
-              </button>
-            </div>
+        <button
+          class="nav-btn accordion-toggle {activeSection === 'chatBubbles'
+            ? 'active'
+            : ''}"
+          onclick={() => toggleSection("chatBubbles")}
+        >
+          <div class="btn-content">
+            <svg
+              class="nav-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><path
+                d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+              ></path></svg
+            >
+            <span class="nav-text">Chat Bubbles</span>
+          </div>
+          <svg
+            class="chevron-icon {activeSection === 'chatBubbles' ? 'open' : ''}"
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            ><polyline points="6 9 12 15 18 9"></polyline></svg
+          >
+        </button>
+        {#if activeSection === "chatBubbles"}
+          <div class="accordion-content">
+            {@render colorSetting(
+              "Incoming Bubble",
+              "--WDS-systems-bubble-surface-incoming",
+              bubbleSurfaceIncoming,
+              applyBubbleSurfaceIncoming,
+              "reset_bubble_surface_incoming",
+              (v) => (bubbleSurfaceIncoming = v),
+            )}
+            {@render colorSetting(
+              "Outgoing Bubble",
+              "--WDS-systems-bubble-surface-outgoing",
+              bubbleSurfaceOutgoing,
+              applyBubbleSurfaceOutgoing,
+              "reset_bubble_surface_outgoing",
+              (v) => (bubbleSurfaceOutgoing = v),
+            )}
+            {@render colorSetting(
+              "Bubble Text Color",
+              "--message-primary",
+              messagePrimary,
+              applyMessagePrimary,
+              "reset_message_primary",
+              (v) => (messagePrimary = v),
+            )}
+            {@render colorSetting(
+              "Read Checkmark",
+              "--WDS-content-read",
+              contentRead,
+              applyContentRead,
+              "reset_content_read",
+              (v) => (contentRead = v),
+            )}
+          </div>
+        {/if}
 
-            <!-- ── Colors ── -->
-            <div class="settings-section-title">Colors</div>
+        <button
+          class="nav-btn accordion-toggle {activeSection === 'textBadges'
+            ? 'active'
+            : ''}"
+          onclick={() => toggleSection("textBadges")}
+        >
+          <div class="btn-content">
+            <svg
+              class="nav-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><path d="M4 7V4h16v3"></path><path d="M9 20h6"></path><path
+                d="M12 4v16"
+              ></path></svg
+            >
+            <span class="nav-text">Text & Badges</span>
+          </div>
+          <svg
+            class="chevron-icon {activeSection === 'textBadges' ? 'open' : ''}"
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            ><polyline points="6 9 12 15 18 9"></polyline></svg
+          >
+        </button>
+        {#if activeSection === "textBadges"}
+          <div class="accordion-content">
+            {@render colorSetting(
+              "Chat Title Text",
+              "--WDS-content-default",
+              contentDefault,
+              applyContentDefault,
+              "reset_content_default",
+              (v) => (contentDefault = v),
+            )}
+            {@render colorSetting(
+              "Sidebar Secondary Text",
+              "--WDS-content-deemphasized",
+              contentDeemphasized,
+              applyContentDeemphasized,
+              "reset_content_deemphasized",
+              (v) => (contentDeemphasized = v),
+            )}
+            {@render colorSetting(
+              "Unread Count Badge",
+              "--WDS-persistent-always-branded",
+              persistentAlwaysBranded,
+              applyPersistentAlwaysBranded,
+              "reset_persistent_always_branded",
+              (v) => (persistentAlwaysBranded = v),
+            )}
+            {@render colorSetting(
+              "Unread Count Text",
+              "--WDS-content-on-accent",
+              contentOnAccent,
+              applyContentOnAccent,
+              "reset_content_on_accent",
+              (v) => (contentOnAccent = v),
+            )}
+          </div>
+        {/if}
 
-            <div class="action-row" style="margin-top: 0; margin-bottom: 2px;">
-              <button
-                type="button"
-                class="btn-danger-text w-full"
-                onclick={resetAllColors}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-4.5"></path></svg>
-                Reset All Colors to Default
-              </button>
-            </div>
+        <button
+          class="nav-btn accordion-toggle {activeSection === 'wallpaper'
+            ? 'active'
+            : ''}"
+          onclick={() => toggleSection("wallpaper")}
+        >
+          <div class="btn-content">
+            <svg
+              class="nav-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><rect x="3" y="3" width="18" height="18" rx="2" ry="2"
+              ></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline
+                points="21 15 16 10 5 21"
+              ></polyline></svg
+            >
+            <span class="nav-text">Background & Wallpaper</span>
+          </div>
+          <svg
+            class="chevron-icon {activeSection === 'wallpaper' ? 'open' : ''}"
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            ><polyline points="6 9 12 15 18 9"></polyline></svg
+          >
+        </button>
+        {#if activeSection === "wallpaper"}
+          <div class="accordion-content">
+            {@render colorSetting(
+              "Message Composer Input",
+              "--WDS-systems-chat-surface-composer",
+              chatSurfaceComposer,
+              applyChatSurfaceComposer,
+              "reset_chat_surface_composer",
+              (v) => (chatSurfaceComposer = v),
+            )}
+            {@render colorSetting(
+              "Chat Background Color",
+              "--WDS-systems-chat-background-wallpaper",
+              chatBackgroundWallpaper,
+              applyChatBackgroundWallpaper,
+              "reset_chat_background_wallpaper",
+              (v) => (chatBackgroundWallpaper = v),
+            )}
 
-            <div class="setting-group">
-              <span class="setting-label">Accent Color <span class="setting-hint">--WDS-accent</span></span>
-              <div class="color-picker-wrapper">
-                <input type="color" class="color-input" oninput={applyAccentColor} />
-                <span class="color-value">{accentColor}</span>
-              
-                <button type="button" class="btn-color-reset" title="Reset to default" onclick={async () => { accentColor = ''; try { await invoke('reset_main_color'); } catch(e) { console.error(e); } }}><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-4.5"></path></svg></button>
-              </div>
-            </div>
-
-            <div class="setting-group">
-              <span class="setting-label">Chat List Background <span class="setting-hint">--background-default</span></span>
-              <div class="color-picker-wrapper">
-                <input type="color" class="color-input" bind:value={backgroundDefault} oninput={applyBackgroundDefault} />
-                <span class="color-value">{backgroundDefault}</span>
-              
-                <button type="button" class="btn-color-reset" title="Reset to default" onclick={async () => { backgroundDefault = ''; try { await invoke('reset_background_default'); } catch(e) { console.error(e); } }}><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-4.5"></path></svg></button>
-              </div>
-            </div>
-
-            <div class="setting-group">
-              <span class="setting-label">Headers & Chat List Bars <span class="setting-hint">--WDS-surface-default</span></span>
-              <div class="color-picker-wrapper">
-                <input type="color" class="color-input" bind:value={surfaceDefault} oninput={applySurfaceDefault} />
-                <span class="color-value">{surfaceDefault}</span>
-              
-                <button type="button" class="btn-color-reset" title="Reset to default" onclick={async () => { surfaceDefault = ''; try { await invoke('reset_surface_default'); } catch(e) { console.error(e); } }}><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-4.5"></path></svg></button>
-              </div>
-            </div>
-
-            <div class="setting-group">
-              <span class="setting-label">Right Sidebar Background <span class="setting-hint">--WDS-surface-emphasized</span></span>
-              <div class="color-picker-wrapper">
-                <input type="color" class="color-input" bind:value={surfaceEmphasized} oninput={applySurfaceEmphasized} />
-                <span class="color-value">{surfaceEmphasized}</span>
-              
-                <button type="button" class="btn-color-reset" title="Reset to default" onclick={async () => { surfaceEmphasized = ''; try { await invoke('reset_surface_emphasized'); } catch(e) { console.error(e); } }}><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-4.5"></path></svg></button>
-              </div>
-            </div>
-
-            <div class="setting-group">
-              <span class="setting-label">Active / Highlight State <span class="setting-hint">--WDS-surface-highlight</span></span>
-              <div class="color-picker-wrapper">
-                <input type="color" class="color-input" bind:value={surfaceHighlight} oninput={applySurfaceHighlight} />
-                <span class="color-value">{surfaceHighlight}</span>
-              
-                <button type="button" class="btn-color-reset" title="Reset to default" onclick={async () => { surfaceHighlight = ''; try { await invoke('reset_surface_highlight'); } catch(e) { console.error(e); } }}><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-4.5"></path></svg></button>
-              </div>
-            </div>
-
-            <div class="setting-group">
-              <span class="setting-label">Right Sidebar Active Row <span class="setting-hint">--WDS-components-active-list-row</span></span>
-              <div class="color-picker-wrapper">
-                <input type="color" class="color-input" bind:value={componentsActiveListRow} oninput={applyComponentsActiveListRow} />
-                <span class="color-value">{componentsActiveListRow}</span>
-              
-                <button type="button" class="btn-color-reset" title="Reset to default" onclick={async () => { componentsActiveListRow = ''; try { await invoke('reset_components_active_list_row'); } catch(e) { console.error(e); } }}><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-4.5"></path></svg></button>
-              </div>
-            </div>
-
-            <!-- ── Bubbles ── -->
-            <div class="settings-section-title">Chat Bubbles</div>
-
-            <div class="setting-group">
-              <span class="setting-label">Incoming Bubble Background <span class="setting-hint">--WDS-systems-bubble-surface-incoming</span></span>
-              <div class="color-picker-wrapper">
-                <input type="color" class="color-input" bind:value={bubbleSurfaceIncoming} oninput={applyBubbleSurfaceIncoming} />
-                <span class="color-value">{bubbleSurfaceIncoming}</span>
-              
-                <button type="button" class="btn-color-reset" title="Reset to default" onclick={async () => { bubbleSurfaceIncoming = ''; try { await invoke('reset_bubble_surface_incoming'); } catch(e) { console.error(e); } }}><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-4.5"></path></svg></button>
-              </div>
-            </div>
-
-            <div class="setting-group">
-              <span class="setting-label">Outgoing Bubble Background <span class="setting-hint">--WDS-systems-bubble-surface-outgoing</span></span>
-              <div class="color-picker-wrapper">
-                <input type="color" class="color-input" bind:value={bubbleSurfaceOutgoing} oninput={applyBubbleSurfaceOutgoing} />
-                <span class="color-value">{bubbleSurfaceOutgoing}</span>
-              
-                <button type="button" class="btn-color-reset" title="Reset to default" onclick={async () => { bubbleSurfaceOutgoing = ''; try { await invoke('reset_bubble_surface_outgoing'); } catch(e) { console.error(e); } }}><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-4.5"></path></svg></button>
-              </div>
-            </div>
-
-            <div class="setting-group">
-              <span class="setting-label">Bubble Text Color <span class="setting-hint">--message-primary</span></span>
-              <div class="color-picker-wrapper">
-                <input type="color" class="color-input" bind:value={messagePrimary} oninput={applyMessagePrimary} />
-                <span class="color-value">{messagePrimary}</span>
-              
-                <button type="button" class="btn-color-reset" title="Reset to default" onclick={async () => { messagePrimary = ''; try { await invoke('reset_message_primary'); } catch(e) { console.error(e); } }}><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-4.5"></path></svg></button>
-              </div>
-            </div>
-
-            <div class="setting-group">
-              <span class="setting-label">Read Checkmark Color <span class="setting-hint">--WDS-content-read</span></span>
-              <div class="color-picker-wrapper">
-                <input type="color" class="color-input" bind:value={contentRead} oninput={applyContentRead} />
-                <span class="color-value">{contentRead}</span>
-              
-                <button type="button" class="btn-color-reset" title="Reset to default" onclick={async () => { contentRead = ''; try { await invoke('reset_content_read'); } catch(e) { console.error(e); } }}><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-4.5"></path></svg></button>
-              </div>
-            </div>
-
-            <!-- ── Text ── -->
-            <div class="settings-section-title">Text</div>
-
-            <div class="setting-group">
-              <span class="setting-label">Chat Title Text <span class="setting-hint">--WDS-content-default</span></span>
-              <div class="color-picker-wrapper">
-                <input type="color" class="color-input" bind:value={contentDefault} oninput={applyContentDefault} />
-                <span class="color-value">{contentDefault}</span>
-              
-                <button type="button" class="btn-color-reset" title="Reset to default" onclick={async () => { contentDefault = ''; try { await invoke('reset_content_default'); } catch(e) { console.error(e); } }}><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-4.5"></path></svg></button>
-              </div>
-            </div>
-
-            <div class="setting-group">
-              <span class="setting-label">Sidebar Secondary Text <span class="setting-hint">--WDS-content-deemphasized</span></span>
-              <div class="color-picker-wrapper">
-                <input type="color" class="color-input" bind:value={contentDeemphasized} oninput={applyContentDeemphasized} />
-                <span class="color-value">{contentDeemphasized}</span>
-              
-                <button type="button" class="btn-color-reset" title="Reset to default" onclick={async () => { contentDeemphasized = ''; try { await invoke('reset_content_deemphasized'); } catch(e) { console.error(e); } }}><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-4.5"></path></svg></button>
-              </div>
-            </div>
-
-            <!-- ── Badges ── -->
-            <div class="settings-section-title">Badges</div>
-
-            <div class="setting-group">
-              <span class="setting-label">Unread Count Badge <span class="setting-hint">--WDS-persistent-always-branded</span></span>
-              <div class="color-picker-wrapper">
-                <input type="color" class="color-input" bind:value={persistentAlwaysBranded} oninput={applyPersistentAlwaysBranded} />
-                <span class="color-value">{persistentAlwaysBranded}</span>
-              
-                <button type="button" class="btn-color-reset" title="Reset to default" onclick={async () => { persistentAlwaysBranded = ''; try { await invoke('reset_persistent_always_branded'); } catch(e) { console.error(e); } }}><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-4.5"></path></svg></button>
-              </div>
-            </div>
-
-            <div class="setting-group">
-              <span class="setting-label">Unread Count Text <span class="setting-hint">--WDS-content-on-accent</span></span>
-              <div class="color-picker-wrapper">
-                <input type="color" class="color-input" bind:value={contentOnAccent} oninput={applyContentOnAccent} />
-                <span class="color-value">{contentOnAccent}</span>
-              
-                <button type="button" class="btn-color-reset" title="Reset to default" onclick={async () => { contentOnAccent = ''; try { await invoke('reset_content_on_accent'); } catch(e) { console.error(e); } }}><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-4.5"></path></svg></button>
-              </div>
-            </div>
-
-            <!-- ── Chat Background ── -->
-            <div class="settings-section-title">Chat Background</div>
-
-            <div class="setting-group">
-              <span class="setting-label">Message Composer Input <span class="setting-hint">--WDS-systems-chat-surface-composer</span></span>
-              <div class="color-picker-wrapper">
-                <input type="color" class="color-input" bind:value={chatSurfaceComposer} oninput={applyChatSurfaceComposer} />
-                <span class="color-value">{chatSurfaceComposer}</span>
-              
-                <button type="button" class="btn-color-reset" title="Reset to default" onclick={async () => { chatSurfaceComposer = ''; try { await invoke('reset_chat_surface_composer'); } catch(e) { console.error(e); } }}><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-4.5"></path></svg></button>
-              </div>
-            </div>
-
-            <div class="setting-group">
-              <span class="setting-label">Chat Background Color <span class="setting-hint">--WDS-systems-chat-background-wallpaper</span></span>
-              <div class="color-picker-wrapper">
-                <input type="color" class="color-input" bind:value={chatBackgroundWallpaper} oninput={applyChatBackgroundWallpaper} />
-                <span class="color-value">{chatBackgroundWallpaper}</span>
-              
-                <button type="button" class="btn-color-reset" title="Reset to default" onclick={async () => { chatBackgroundWallpaper = ''; try { await invoke('reset_chat_background_wallpaper'); } catch(e) { console.error(e); } }}><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-4.5"></path></svg></button>
-              </div>
-            </div>
-
-            <!-- ── Fixes ── -->
-            <div class="settings-section-title">Fixes</div>
-
-            <div class="setting-group">
-              <span class="setting-label">Search Container Gap <span class="setting-hint">chat-list-search-container</span></span>
-              <div class="segment-control">
-                <button
-                  class="segment-btn {searchContainerFix === 'as-is' ? 'active' : ''}"
-                  onclick={() => (searchContainerFix = "as-is")}
-                >As-is</button>
-                <button
-                  class="segment-btn {searchContainerFix === 'fixed' ? 'active' : ''}"
-                  onclick={() => (searchContainerFix = "fixed")}
-                >Fixed</button>
-              </div>
-            </div>
-
-            <!-- ── Wallpaper ── -->
-            <div class="settings-section-title">Wallpaper</div>
-
-            <div class="setting-group">
-              <span class="setting-label">Chat Wallpaper</span>
-
+            <div class="setting-group" style="margin-top: 12px;">
+              <span class="setting-label">Custom Image Wallpaper</span>
               <form onsubmit={changeWallpaper} class="wallpaper-form">
                 <input
                   type="text"
@@ -766,7 +754,6 @@
                   placeholder="Paste image URL…"
                   bind:value={urlValue}
                 />
-
                 <div class="file-browse-row">
                   <button
                     type="button"
@@ -849,35 +836,76 @@
                   >
                 </div>
               </form>
+              {#if wallpaperStatus}
+                <p class="status-msg">{wallpaperStatus}</p>
+              {/if}
             </div>
+          </div>
+        {/if}
 
-            {#if wallpaperStatus}
-              <p class="status-msg">{wallpaperStatus}</p>
-            {/if}
+        <button
+          class="nav-btn accordion-toggle {activeSection === 'fixes'
+            ? 'active'
+            : ''}"
+          onclick={() => toggleSection("fixes")}
+        >
+          <div class="btn-content">
+            <svg
+              class="nav-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><path
+                d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
+              ></path></svg
+            >
+            <span class="nav-text">Layout Fixes</span>
+          </div>
+          <svg
+            class="chevron-icon {activeSection === 'fixes' ? 'open' : ''}"
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            ><polyline points="6 9 12 15 18 9"></polyline></svg
+          >
+        </button>
+        {#if activeSection === "fixes"}
+          <div class="accordion-content">
+            <div class="setting-group">
+              <span class="setting-label">Search Container Gap</span>
+              <div class="segment-control">
+                <button
+                  class="segment-btn {searchContainerFix === 'as-is'
+                    ? 'active'
+                    : ''}"
+                  onclick={() => (searchContainerFix = "as-is")}>As-is</button
+                >
+                <button
+                  class="segment-btn {searchContainerFix === 'fixed'
+                    ? 'active'
+                    : ''}"
+                  onclick={() => (searchContainerFix = "fixed")}>Fixed</button
+                >
+              </div>
+            </div>
           </div>
         {/if}
       </section>
     </nav>
 
     <div class="sidebar-footer">
-      <div class="footer-avatar">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          ><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle
-            cx="12"
-            cy="7"
-            r="4"
-          ></circle></svg
-        >
-      </div>
       <div class="footer-text">
         <p class="footer-title">Wrap It App Client</p>
         <p class="footer-sub">v1.0.0-beta</p>
@@ -891,7 +919,7 @@
 </div>
 
 <style>
-  /* ── Open Source Modern Theme: Zinc / Neutral ── */
+  /* Keep all your original base CSS styles here ... */
   @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap");
 
   :root {
@@ -899,18 +927,14 @@
     --bg-sidebar: #18181b;
     --bg-surface: #27272a;
     --bg-hover: #3f3f46;
-
     --text-primary: #fafafa;
     --text-secondary: #a1a1aa;
     --text-muted: #71717a;
-
-    --accent: #10b981; /* Default to WhatsApp Green */
+    --accent: #10b981;
     --accent-hover: #059669;
     --danger: #ef4444;
-
     --border: #27272a;
     --border-hover: #3f3f46;
-
     font-family: "Inter", sans-serif;
     font-size: 13px;
     color: var(--text-primary);
@@ -924,7 +948,6 @@
     overflow: hidden;
     background-color: var(--bg-main);
   }
-
   *,
   *::before,
   *::after {
@@ -936,13 +959,11 @@
     height: 100vh;
     width: 100vw;
   }
-
   .main-content {
     flex: 1;
     background-color: var(--bg-main);
   }
 
-  /* ── Sidebar Base ── */
   .sidebar {
     position: relative;
     height: 100vh;
@@ -953,7 +974,6 @@
     transition: width 0.1s ease;
   }
 
-  /* ── Header ── */
   .sidebar-header {
     padding: 16px;
     display: flex;
@@ -961,26 +981,43 @@
     gap: 12px;
     border-bottom: 1px solid var(--border);
   }
-
   .app-identity {
     display: flex;
     align-items: center;
     gap: 10px;
   }
-
-  .app-icon {
+  .app-icon-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text-primary);
+    border-radius: 8px;
     flex-shrink: 0;
+    cursor: pointer;
+    padding: 0;
+    transition:
+      background 0.15s,
+      border-color 0.15s,
+      transform 0.1s,
+      box-shadow 0.15s;
   }
-
+  .app-icon-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-hover);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  }
+  .app-icon-btn:active {
+    transform: scale(0.92);
+    background: var(--bg-main);
+    box-shadow: none;
+  }
+  .app-icon-img {
+    display: block;
+    border-radius: 4px;
+  }
   .app-name {
     font-weight: 600;
     font-size: 14px;
@@ -1000,19 +1037,16 @@
     transition: all 0.2s;
     cursor: pointer;
   }
-
   .search-bar:hover {
     border-color: var(--border-hover);
     color: var(--text-secondary);
   }
-
   .search-icon {
     flex-shrink: 0;
   }
   .search-placeholder {
     white-space: nowrap;
   }
-
   .search-kbd {
     margin-left: auto;
     font-size: 10px;
@@ -1022,7 +1056,15 @@
     border-radius: 4px;
   }
 
-  /* ── Navigation & Sections ── */
+  .disabled-search {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .disabled-search:hover {
+    border-color: transparent;
+    color: var(--text-muted);
+  }
+
   .sidebar-nav {
     flex: 1;
     overflow-y: auto;
@@ -1030,7 +1072,6 @@
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
   }
-
   .section-label {
     font-size: 11px;
     font-weight: 600;
@@ -1043,7 +1084,6 @@
     white-space: nowrap;
   }
 
-  /* ── Dropdown Buttons ── */
   .nav-btn {
     display: flex;
     align-items: center;
@@ -1062,20 +1102,18 @@
       background 0.15s,
       color 0.15s;
   }
-
   .nav-btn .btn-content {
     display: flex;
     align-items: center;
     gap: 10px;
   }
-
   .nav-btn:hover {
     background: var(--bg-surface);
     color: var(--text-primary);
   }
-
   .nav-btn.active {
     color: var(--text-primary);
+    background: var(--bg-surface);
   }
 
   .chevron-icon {
@@ -1086,16 +1124,16 @@
     transform: rotate(180deg);
   }
 
-  /* ── Dropdown Menu Details ── */
-  .dropdown-menu {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    margin-top: 4px;
+  /* ── New Accordion Styles ── */
+  .accordion-content {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
     padding: 12px;
     display: flex;
     flex-direction: column;
     gap: 16px;
+    margin: 4px 0 8px 0;
+    border: 1px solid var(--border);
   }
 
   .setting-group {
@@ -1103,36 +1141,71 @@
     flex-direction: column;
     gap: 8px;
   }
-
   .setting-label {
     font-size: 11px;
     font-weight: 500;
     color: var(--text-secondary);
   }
-
-  /* Controls */
-  .color-picker {
-    display: flex;
-    gap: 8px;
+  .setting-hint {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--text-muted);
+    font-weight: 400;
+    opacity: 0.7;
   }
 
-  .color-swatch {
+  .color-picker-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    padding: 6px 8px;
+    border-radius: 6px;
+  }
+  .btn-color-reset {
+    margin-left: auto;
+    background: none;
+    border: none;
+    padding: 2px;
+    cursor: pointer;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    border-radius: 3px;
+    opacity: 0.5;
+    transition:
+      opacity 0.15s,
+      color 0.15s;
+    flex-shrink: 0;
+  }
+  .btn-color-reset:hover {
+    opacity: 1;
+    color: var(--danger);
+  }
+  .color-input {
+    -webkit-appearance: none;
+    appearance: none;
     width: 24px;
     height: 24px;
-    border-radius: 50%;
-    border: 2px solid var(--bg-surface);
+    border: none;
+    border-radius: 4px;
     cursor: pointer;
-    transition:
-      transform 0.1s,
-      border-color 0.1s;
+    padding: 0;
+    background: transparent;
+  }
+  .color-input::-webkit-color-swatch-wrapper {
     padding: 0;
   }
-  .color-swatch:hover {
-    transform: scale(1.1);
+  .color-input::-webkit-color-swatch {
+    border: 1px solid var(--border);
+    border-radius: 4px;
   }
-  .color-swatch:focus {
-    border-color: var(--text-primary);
-    outline: none;
+  .color-value {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
   }
 
   .segment-control {
@@ -1140,8 +1213,8 @@
     background: var(--bg-main);
     border-radius: 6px;
     padding: 2px;
+    border: 1px solid var(--border);
   }
-
   .segment-btn {
     flex: 1;
     background: transparent;
@@ -1163,7 +1236,6 @@
     flex-direction: column;
     gap: 8px;
   }
-
   .input-field {
     background: var(--bg-main);
     border: 1px solid var(--border);
@@ -1178,7 +1250,6 @@
   .input-field:focus {
     border-color: var(--accent);
   }
-
   .file-browse-row {
     display: flex;
     align-items: center;
@@ -1194,7 +1265,6 @@
     text-overflow: ellipsis;
   }
 
-  /* Toggle Switch */
   .toggle-row {
     display: flex;
     justify-content: space-between;
@@ -1246,7 +1316,6 @@
     align-items: center;
     margin-top: 4px;
   }
-
   .status-msg {
     font-size: 11px;
     font-family: "JetBrains Mono", monospace;
@@ -1255,14 +1324,12 @@
     text-align: center;
   }
 
-  /* Action Buttons */
   .action-row {
     display: flex;
     flex-direction: column;
     gap: 6px;
     margin-top: 4px;
   }
-
   .btn-outline,
   .btn-primary,
   .btn-danger-text {
@@ -1281,7 +1348,6 @@
   .w-full {
     width: 100%;
   }
-
   .btn-outline {
     background: var(--bg-main);
     border: 1px solid var(--border);
@@ -1290,7 +1356,6 @@
   .btn-outline:hover {
     background: var(--bg-hover);
   }
-
   .btn-primary {
     background: var(--text-primary);
     color: var(--bg-main);
@@ -1298,7 +1363,6 @@
   .btn-primary:hover {
     background: #e4e4e7;
   }
-
   .btn-danger-text {
     background: transparent;
     color: var(--danger);
@@ -1307,7 +1371,6 @@
     background: rgba(239, 68, 68, 0.1);
   }
 
-  /* ── Footer ── */
   .sidebar-footer {
     padding: 16px;
     border-top: 1px solid var(--border);
@@ -1316,19 +1379,6 @@
     gap: 12px;
     overflow: hidden;
   }
-
-  .footer-avatar {
-    width: 32px;
-    height: 32px;
-    background: var(--bg-surface);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-secondary);
-    flex-shrink: 0;
-  }
-
   .footer-text {
     display: flex;
     flex-direction: column;
@@ -1346,7 +1396,6 @@
     white-space: nowrap;
   }
 
-  /* ── Resizer ── */
   .resizer {
     width: 6px;
     height: 100%;
@@ -1360,7 +1409,6 @@
     background: rgba(255, 255, 255, 0.05);
   }
 
-  /* ── Collapsed State ── */
   .sidebar.collapsed .app-name,
   .sidebar.collapsed .search-placeholder,
   .sidebar.collapsed .search-kbd,
@@ -1368,113 +1416,29 @@
   .sidebar.collapsed .nav-text,
   .sidebar.collapsed .chevron-icon,
   .sidebar.collapsed .footer-text,
-  .sidebar.collapsed .dropdown-menu {
+  .sidebar.collapsed .accordion-content {
     display: none;
   }
-
   .sidebar.collapsed .sidebar-header {
     padding: 16px 8px;
   }
-
   .sidebar.collapsed .app-identity {
     justify-content: center;
   }
-
   .sidebar.collapsed .search-bar {
     justify-content: center;
     padding: 8px;
     border-radius: 8px;
   }
-
   .sidebar.collapsed .nav-btn {
     justify-content: center;
     padding: 10px;
   }
-
   .sidebar.collapsed .btn-content {
     justify-content: center;
   }
-
   .sidebar.collapsed .sidebar-footer {
     justify-content: center;
     padding: 16px 0;
-  }
-
-  /* ── Settings section titles ── */
-  .settings-section-title {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-    padding: 4px 0 2px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: -4px;
-  }
-
-  .setting-hint {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
-    color: var(--text-muted);
-    font-weight: 400;
-    opacity: 0.7;
-  }
-
-  .color-picker-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: var(--bg-main);
-    border: 1px solid var(--border);
-    padding: 6px 8px;
-    border-radius: 6px;
-  }
-
-  .btn-color-reset {
-    margin-left: auto;
-    background: none;
-    border: none;
-    padding: 2px;
-    cursor: pointer;
-    color: var(--text-muted);
-    display: flex;
-    align-items: center;
-    border-radius: 3px;
-    opacity: 0.5;
-    transition: opacity 0.15s, color 0.15s;
-    flex-shrink: 0;
-  }
-  .btn-color-reset:hover {
-    opacity: 1;
-    color: var(--danger);
-  }
-
-  .color-input {
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-    width: 24px;
-    height: 24px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    padding: 0;
-    background: transparent;
-  }
-
-  .color-input::-webkit-color-swatch-wrapper {
-    padding: 0;
-  }
-
-  .color-input::-webkit-color-swatch {
-    border: 1px solid var(--border);
-    border-radius: 4px;
-  }
-
-  .color-value {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 12px;
-    color: var(--text-secondary);
-    text-transform: uppercase;
   }
 </style>
