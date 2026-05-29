@@ -207,7 +207,7 @@ fn setup_desktop_layout(app: &mut App) -> Result<(), Box<dyn std::error::Error>>
     let svelte_view = main_window.add_child(
         svelte_builder,
         LogicalPosition::new(0.0, 0.0),
-        LogicalSize::new(200.0, 800.0),
+        LogicalSize::new(260.0, 800.0),
     )?;
 
     let app_handle = app.handle().clone();
@@ -285,8 +285,8 @@ fn setup_desktop_layout(app: &mut App) -> Result<(), Box<dyn std::error::Error>>
 
     let whatsapp_view = main_window.add_child(
         whatsapp_builder,
-        LogicalPosition::new(200.0, 0.0),
-        LogicalSize::new(1000.0, 800.0),
+        LogicalPosition::new(260.0, 0.0),
+        LogicalSize::new(940.0, 800.0),
     )?;
 
     let window_clone = main_window.clone();
